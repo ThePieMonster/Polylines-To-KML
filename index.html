@@ -118,6 +118,15 @@
             alert("Select a file to upload!");
             return false;
         }
+
+        var fileName = files[0].name.split(".");
+        if(fileName[fileName.length-1] != "json") {
+            document.getElementById('importTextArea').value = "Please select a JSON file";
+            $.LoadingOverlay("hide");
+            console.log("Log: finished loading");
+            return false;
+        }
+
         $.LoadingOverlay("show");
         $(this).delay(1000).queue(function() {
             importFile(); 
@@ -132,7 +141,12 @@
             alert("Import a file or paste in polyline text!");
             return false;
         }
-        convertFile();
+
+        $.LoadingOverlay("show");
+        $(this).delay(1000).queue(function() {
+            convertFile();
+            $(this).dequeue();
+          });
     };
 
     // Export KML File
@@ -152,11 +166,9 @@
     function importFile() {
         var files = document.getElementById('selectFiles').files;
         console.log(files);
-        if (files.length <= 0) {
-            return false;
-        }
         
         var fr = new FileReader();
+
         fr.onloadstart = function(e) {
             console.log("Log: started loading");
         }
@@ -164,22 +176,30 @@
         fr.onload = function(e) { 
             console.log(e);
             // JSON Import
-            var result = JSON.parse(e.target.result);
-            //var formatted = JSON.stringify(result, null, 2);
-            
-            // Empty array and then push only polyline data
-            polylineArray = [];
-            var polylineArrayString = "";
-            for (let i = 0; i < result.length; i++) {
-                polylineArray.push(result[i].points);
-                polylineArrayString += result[i].points + "\n";
+            try{
+                var result = JSON.parse(e.target.result);            
+                //var formatted = JSON.stringify(result, null, 2);
+                
+                // Empty array and then push only polyline data
+                polylineArray = [];
+                var polylineArrayString = "";
+                for (let i = 0; i < result.length; i++) {
+                    polylineArray.push(result[i].points);
+                    polylineArrayString += result[i].points + "\n";
+                }
+                
+                // Update UI
+                document.getElementById('importTextArea').value = polylineArrayString;
+                document.getElementById('importFileLength').innerHTML = polylineArray.length;
             }
-            
-            // Update UI
-            document.getElementById('importTextArea').value = polylineArrayString;
-            document.getElementById('importFileLength').innerHTML = polylineArray.length;
-            requestAnimationFrame(() => console.log("Log: finished loading"));
-            $.LoadingOverlay("hide");
+            catch(error) {
+                console.error(error);
+                document.getElementById('importTextArea').value = error;
+            }
+            finally {
+                $.LoadingOverlay("hide");
+                console.log("Log: finished loading");
+            }
         }
         fr.readAsText(files.item(0));
     }
@@ -187,7 +207,12 @@
     function convertFile() {
         console.log("Log: started converting");
         // Set polyline string
-        polylineString = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><kml xmlns=\"http://www.opengis.net/kml/2.2\"><Document>";
+        polylineString = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
+            <kml xmlns=\"http://www.opengis.net/kml/2.2\">\
+            <Document>\
+            <name>Polylines To KML</name>\
+            <description>Polylines To KML by ThePieMonster. https://github.com/ThePieMonster/Polylines-To-KML></description>";
+
         // Get info from text area
         var textarea = document.getElementById('importTextArea').value;
         var polylines = textarea.split('\n');
@@ -203,43 +228,33 @@
                 var decodedPath = google.maps.geometry.encoding.decodePath(encodedPolyline);
 
                 // Create the polyline string
-                polylineString += "<Placemark>";
-                polylineString += "<name>Name</name>";
-                polylineString += "<description>Description</description>";
-                /* polylineString += "<ExtendedData>";
-                polylineString += "<Data name=\"name\"><value>Name</value></Data>";
-                polylineString += "<Data name=\"styleUrl\"><value>#line-0288D1-5000</value></Data>";
-                polylineString += "<Data name=\"styleHash\"><value>1b2ca918</value></Data>";
-                polylineString += "<Data name=\"styleMapHash\"><value>[object Object]</value></Data>";
-                polylineString += "<Data name=\"description\"><value>Description</value></Data>";
-                polylineString += "<Data name=\"stroke\"><value>#0288d1</value></Data>";
-                polylineString += "<Data name=\"stroke-opacity\"><value>1</value></Data>";  
-                polylineString += "<Data name=\"stroke-width\"><value>5</value></Data>"; 
-                polylineString += "</ExtendedData>"; */
+                polylineString += "<Placemark>\n";
+                polylineString += "<name>"+i+"</name>\n";
 
                 // For each coordinate in the polyline...
-                polylineString += "<LineString><coordinates>";
+                polylineString += "<LineString>\n<coordinates>\n";
                 for (let j = 0; j < decodedPath.length; j++) {
-                    polylineString += decodedPath[j].lat().toFixed(5) + "," + decodedPath[j].lng().toFixed(5) + ",0";
-                    if(j < decodedPath.length-1) {
-                        polylineString += " ";
-                    }
+                    polylineString += decodedPath[j].lng().toFixed(5) + "," + decodedPath[j].lat().toFixed(5) + ",0" + "\n";
+                    // if(j < decodedPath.length-1) {
+                    //     polylineString += "\n";
+                    // }
                 }
-                polylineString += "</coordinates></LineString>";
-                polylineString += "</Placemark>";
+                polylineString += "</coordinates>\n</LineString>\n";
+                polylineString += "</Placemark>\n";
                 
                 // Increment successful conversion
                 polylineConvertCount++;
             }
         }
-        polylineString += "</Document></kml>";
+        polylineString += "</Document>\n</kml>";
         
         // Format XML
-        beautifiedXmlText = new XmlBeautify().beautify(polylineString);
+        beautifiedXmlText = new XmlBeautify().beautify(polylineString); // strips [CDATA] tags
 
         // Update UI
         document.getElementById('convertTextPolylineAmount').innerHTML = polylineConvertCount;
         document.getElementById('convertTextArea').value = beautifiedXmlText; // large values may crash UI
+        $.LoadingOverlay("hide");
         console.log("Log: finished converting");     
     }
 
