@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en-gb" dir="ltr">
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta charset="utf-8" />
+    <title>Polylines To KML</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <!--<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>-->
+    <script type="text/javascript" src="https://code.jquery.com/jquery-1.12.4.min.js" integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ=" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/gasparesganga-jquery-loading-overlay@2.1.7/dist/loadingoverlay.min.js"></script>
+    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?libraries=geometry&key=AIzaSyAQSYlUm_c6B9b5dzSLkQOwPSmZZzFTmwk"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/xml-beautify@1.1.2/dist/XmlBeautify.js"></script>
+
+    <style>
+        html, body {
+            height: 100%;
+            width: 100%;
+        }
+        html {
+            display: table;
+            margin-top: 1em;
+            margin-bottom: 0em;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        body {
+            display: table-cell;
+            /* vertical-align: middle; */
+        }
+        .row {
+            margin-top: 15px
+        }
+        textarea {
+            width: 20em;
+            height: 10em;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Body -->
+    <div class="body">
+        <div class="container">
+            <h1 style="text-align: center;">Polylines To KML</h1>
+            <p class="">View <a href="https://developers.google.com/maps/documentation/utilities/polylineutility">Google Polyline Utility</a> for more information regarding polylines and the polyline algorithm.</p>
+            <!-- <div class="row">
+                <div class="col-sm">
+                    Average gap between frames: <span id="elapsed"></span>
+                </div>
+            </div> -->
+            <div class="row">
+                <div class="col-sm">
+                    <div class="input-group">
+                        <div class="custom-file">
+                            <input type="file" class="custom-file-input" id="selectFiles">
+                            <label class="custom-file-label" for="selectFiles">Upload a JSON file</label>
+                        </div>
+                        <div class="input-group-append">
+                            <button type="button" class="btn btn-outline-secondary" id="exampleArrayHintButton">View Example JSON File</button>
+                        </div>
+                    </div>
+                </div> 
+            </div>
+            <div class="row" id=exampleArrayHint style="display: none;">
+                <div class="col-sm">
+                    <label for="exampleArray">Example Array</label>
+                    <textarea class="form-control" spellcheck="false" id="exampleArrayTextArea" readonly wrap="off"></textarea>
+                </div> 
+            </div>
+            <div class="row">
+                <div class="col-sm">
+                    <button type="button" class="btn btn-outline-primary" id="importButton">Import JSON</button>
+                </div>
+                <div class="col-sm">
+                    Polylines Imported: <br/><span id="importFileLength">0</span>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm">
+                    <label for="importTextArea">Polylines&ensp;</label><small><label for="importTextArea">(One polyline per line)</label></small>
+                    <textarea class="form-control" spellcheck="false" id="importTextArea" wrap="off"></textarea>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm">
+                    <button type="button" class="btn btn-outline-primary" id="convertButton">Convert Polylines</button>
+                </div>
+                <div class="col-sm">
+                    Polylines Converted: <br/><span id="convertTextPolylineAmount">0</span>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm">
+                    <textarea class="form-control" spellcheck="false" id="convertTextArea" readonly wrap="off"></textarea>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm">
+                    <button type="button" class="btn btn-outline-primary" id="exportButton">Export KML</button>
+                </div>
+            </div>
+        </div>
+    </div>
+<script type="text/javascript">
+    // Global Vars
+    var polylineArray = [];
+    var polylineString = "";
+    var beautifiedXmlText;
+    var temp;
+
+    // File Upload
+    document.getElementById('importButton').onclick = function() {
+        var files = document.getElementById('selectFiles').files;
+        if (files.length <= 0) {
+            alert("Select a file to upload!");
+            return false;
+        }
+        $.LoadingOverlay("show");
+        $(this).delay(1000).queue(function() {
+            importFile(); 
+            $(this).dequeue();
+          });
+    };
+
+    // Create KML from Polylines
+    document.getElementById('convertButton').onclick = function() {
+        var textarea = document.getElementById('importTextArea').value;
+        if (textarea.length <= 0) {
+            alert("Import a file or paste in polyline text!");
+            return false;
+        }
+        convertFile();
+    };
+
+    // Export KML File
+    document.getElementById('exportButton').onclick = function() {
+        if (polylineString.length <= 0) {
+            alert("First convert some polylines!");
+            return false;
+        }
+        var pom = null;
+        pom = document.createElement('a');
+        pom.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(beautifiedXmlText));
+        pom.setAttribute('download', "KML.kml");
+        pom.click();
+    }
+
+    // Functions
+    function importFile() {
+        var files = document.getElementById('selectFiles').files;
+        console.log(files);
+        if (files.length <= 0) {
+            return false;
+        }
+        
+        var fr = new FileReader();
+        fr.onloadstart = function(e) {
+            console.log("Log: started loading");
+        }
+
+        fr.onload = function(e) { 
+            console.log(e);
+            // JSON Import
+            var result = JSON.parse(e.target.result);
+            //var formatted = JSON.stringify(result, null, 2);
+            
+            // Empty array and then push only polyline data
+            polylineArray = [];
+            var polylineArrayString = "";
+            for (let i = 0; i < result.length; i++) {
+                polylineArray.push(result[i].points);
+                polylineArrayString += result[i].points + "\n";
+            }
+            
+            // Update UI
+            document.getElementById('importTextArea').value = polylineArrayString;
+            document.getElementById('importFileLength').innerHTML = polylineArray.length;
+            requestAnimationFrame(() => console.log("Log: finished loading"));
+            $.LoadingOverlay("hide");
+        }
+        fr.readAsText(files.item(0));
+    }
+
+    function convertFile() {
+        console.log("Log: started converting");
+        // Set polyline string
+        polylineString = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><kml xmlns=\"http://www.opengis.net/kml/2.2\"><Document>";
+        // Get info from text area
+        var textarea = document.getElementById('importTextArea').value;
+        var polylines = textarea.split('\n');
+        var polylineConvertCount = 0;
+
+        // For each polyline...
+        for (let i = 0; i < polylines.length; i++) {
+            console.log("Log: converting polyline: " + i);
+            var encodedPolyline = polylines[i];
+            if(encodedPolyline == '' || encodedPolyline == ' ' || encodedPolyline == null) { 
+                console.log("Log: empty polyline found at: " + i);
+            } else {
+                var decodedPath = google.maps.geometry.encoding.decodePath(encodedPolyline);
+
+                // Create the polyline string
+                polylineString += "<Placemark>";
+                polylineString += "<name>Name</name>";
+                polylineString += "<description>Description</description>";
+                /* polylineString += "<ExtendedData>";
+                polylineString += "<Data name=\"name\"><value>Name</value></Data>";
+                polylineString += "<Data name=\"styleUrl\"><value>#line-0288D1-5000</value></Data>";
+                polylineString += "<Data name=\"styleHash\"><value>1b2ca918</value></Data>";
+                polylineString += "<Data name=\"styleMapHash\"><value>[object Object]</value></Data>";
+                polylineString += "<Data name=\"description\"><value>Description</value></Data>";
+                polylineString += "<Data name=\"stroke\"><value>#0288d1</value></Data>";
+                polylineString += "<Data name=\"stroke-opacity\"><value>1</value></Data>";  
+                polylineString += "<Data name=\"stroke-width\"><value>5</value></Data>"; 
+                polylineString += "</ExtendedData>"; */
+
+                // For each coordinate in the polyline...
+                polylineString += "<LineString><coordinates>";
+                for (let j = 0; j < decodedPath.length; j++) {
+                    polylineString += decodedPath[j].lat().toFixed(5) + "," + decodedPath[j].lng().toFixed(5) + ",0";
+                    if(j < decodedPath.length-1) {
+                        polylineString += " ";
+                    }
+                }
+                polylineString += "</coordinates></LineString>";
+                polylineString += "</Placemark>";
+                
+                // Increment successful conversion
+                polylineConvertCount++;
+            }
+        }
+        polylineString += "</Document></kml>";
+        
+        // Format XML
+        beautifiedXmlText = new XmlBeautify().beautify(polylineString);
+
+        // Update UI
+        document.getElementById('convertTextPolylineAmount').innerHTML = polylineConvertCount;
+        document.getElementById('convertTextArea').value = beautifiedXmlText; // large values may crash UI
+        console.log("Log: finished converting");     
+    }
+
+
+
+    // DOM Render Frame Counter
+    // - Used for debugging DOM element load times
+    /*var last = null;
+    var total = 0;
+    var count = 0;
+    var span = document.getElementById("elapsed");
+    requestAnimationFrame(tick);
+    function tick(ts) {
+        var elapsed;
+        if (last) {
+            elapsed = ts - last;
+            total += elapsed;
+            ++count;
+            span.innerHTML = (total / count).toFixed(5);
+        }
+        last = ts;
+        requestAnimationFrame(tick);
+    }*/
+
+
+
+    // EventListeners
+    $('#selectFiles').on('change',function(){
+        //get the file name
+        var fileName = $(this).val();
+        //replace the "Choose a file" label
+        $(this).next('.custom-file-label').html(fileName);
+    })
+
+    $('#exampleArrayHintButton').on('click',function(){
+        var box = document.getElementById('exampleArrayHint');
+        var button = document.getElementById('exampleArrayHintButton');
+        if(box.style.display == "none" ) {
+            box.style.display = "flex";
+            button.innerHTML = "Hide Example JSON File"
+        } else {
+            box.style.display = "none";
+            button.innerHTML = "View Example JSON File"
+        }
+    })
+    
+    window.addEventListener('load', function () {
+        var exampleArrayTextArea = document.getElementById('exampleArrayTextArea');
+        var exampleArrayString = '[\
+            {\
+                "id": 123,\
+                "points": "iko~FtzzuO_yA}hCacAtsClhAxrBtsAq}B",\
+                "level": 3,\
+                "color": "#ff0000",\
+                "name": "chicago diamond"\
+            }\
+        ]';
+        var exampleArrayStringJSON = JSON.parse(exampleArrayString);
+        var exampleArrayStringJSONFormatted = JSON.stringify(exampleArrayStringJSON, null, 2);
+        exampleArrayTextArea.value = "\\\\ Each object in the array must include a value named \"points\" which contains the polyline. All other values are ignored.\n";
+        exampleArrayTextArea.value += exampleArrayStringJSONFormatted;
+    })
+</script>
+</body>
+</html>
